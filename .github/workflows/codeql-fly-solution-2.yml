@@ -1,0 +1,60 @@
+name: "CodeQL-Fly solution-2"
+
+on:
+  workflow_dispatch:
+    inputs:
+      analysis_ref:
+        description: 'Branch or tag to analyze'
+        required: true
+      commit_sha:
+        description: 'Optional commit SHA'
+        required: false
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.language == 'swift' && 'macos-latest' || 'ubuntu-latest' }}
+    env:
+      GITHUB_REF: ${{ github.event.inputs.analysis_ref }}
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: javascript-typescript
+          build-mode: none
+        - language: actions
+          build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.analysis_ref }}
+          fetch-depth: 0
+
+      - name: Checkout specific commit (if provided)
+        if: ${{ github.event.inputs.commit_sha != '' }}
+        run: git checkout ${{ github.event.inputs.commit_sha }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          "build-mode": ${{ matrix.build-mode }}
+
+      - if: ${{ matrix.build-mode == 'manual' }}
+        name: Manual build required
+        run: |
+          echo "You selected 'manual' build-mode for ${{ matrix.language }}. Add your build commands here."
+          exit 1
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: ${{ matrix.language }}
