@@ -82,10 +82,10 @@ app.get('/user', (req, res) => {
   });
 });
 
-app.get('/user/:id', (req, res) => {
+app.get('/user-search', (req, res) => {
   const userId = req.query.id;
   // ⚠️ SQL Injection vulnerability
-  const query = `SELECT * FROM users WHERE id = ${userId}`;
+  const query = `SELECT * FROM users_search WHERE id = ${userId}`;
   
   db.query(query, (error, results) => {
     if (error) throw error;
