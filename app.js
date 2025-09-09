@@ -1,132 +1,51 @@
-const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// 🛑 Hardcoded secret (Credential exposure)
+const SECRET_KEY = "my-super-secret-key-123";
 
-// Middleware
-// making change 1 to trigger the code QA scan
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
-//test 11
+// 🛑 Insecure random (predictable values)
+const insecureToken = Math.random().toString(36).substring(2);
 
-const getReleaseInfo = (tag) => {
-  return `refs/tags/${tag}`
-}
-// Routes
-app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>Express App</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            max-width: 600px; 
-            margin: 50px auto; 
-            padding: 20px;
-            background-color: #f5f5f5;
-          }
-          .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-          }
-          h1 { color: #333; }
-          .endpoints {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🚀 Express Server is Running!</h1>
-          <p>Welcome to your Node.js Express application.</p>
-          <div class="endpoints">
-            <h3>Available Endpoints:</h3>
-            <ul>
-              <li><strong>GET /</strong> - This home page</li>
-              <li><strong>GET /api/hello</strong> - Simple API endpoint</li>
-              <li><strong>POST /api/echo</strong> - Echo back JSON data</li>
-            </ul>
-          </div>
-        </div>
-      </body>
-    </html>
-  `);
-});
+// 🛑 Weak hashing (MD5 collision issues)
+const weakHash = crypto.createHash('md5').update('password123').digest('hex');
 
-
-app.get('/calc', (req, res) => {
-  const expression = req.query.expr;
-  // ⚠️ Code Injection vulnerability
-  try {
-    const result = eval(expression);
-    res.send(`Result: ${result}`);
-  } catch (error) {
-    res.send('Error in expression');
-  }
-});
-
-
-
-app.get('/user', (req, res) => {
-  const userId = req.query.id;
-  // ⚠️ SQL Injection vulnerability
-  const query = `SELECT * FROM users WHERE id = ${userId}`;
+// Route: File Read (Path Traversal vulnerability)
+app.get('/readfile', (req, res) => {
+  const filename = req.query.file;
+  // ⚠️ Path traversal possible (e.g., ?file=../../etc/passwd)
+  const filePath = path.join(__dirname, filename);
   
-  db.query(query, (error, results) => {
-    if (error) throw error;
-    res.json(results);
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) return res.status(500).send('File error');
+    res.send(`<pre>${data}</pre>`);
   });
 });
 
-app.get('/search', (req, res) => {
-  const searchTerm = req.query.q;
-  // ⚠️ Reflected XSS vulnerability
-  res.send(`<h1>Search Results for: ${searchTerm}</h1>`);
-});
-
-app.get('/api/hello', (req, res) => {
-  res.json({
-    message: 'Hello from Express API!',
-    timestamp: new Date().toISOString(),
-    status: 'success'
+// Route: Command Injection vulnerability
+app.get('/exec', (req, res) => {
+  const userCommand = req.query.cmd;
+  // ⚠️ Dangerous: passes user input directly into shell
+  const { exec } = require('child_process');
+  exec(userCommand, (error, stdout, stderr) => {
+    if (error) {
+      return res.status(500).send('Execution error');
+    }
+    res.send(`<pre>${stdout}</pre>`);
   });
 });
 
-app.post('/api/echo', (req, res) => {
-  res.json({
-    message: 'Echo endpoint',
-    received: req.body,
-    timestamp: new Date().toISOString()
-  });
+// Route: Open Redirect vulnerability
+app.get('/redirect', (req, res) => {
+  const target = req.query.url;
+  // ⚠️ Unvalidated redirect
+  res.redirect(target);
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.originalUrl
-  });
+// Route: Insecure cookie
+app.get('/setcookie', (req, res) => {
+  // ⚠️ No HttpOnly or Secure flags
+  res.cookie('sessionId', '12345', { maxAge: 900000 });
+  res.send('Insecure cookie set');
 });
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: err.message
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
-
-module.exports = app;
