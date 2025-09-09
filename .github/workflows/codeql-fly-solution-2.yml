@@ -58,16 +58,12 @@ jobs:
           category: ${{ matrix.language }}
           output: results.sarif
       
-      - name: Debug SARIF file
+      - name: Merge SARIF files
         run: |
-          ls -lh results.sarif
-          head -n 20 results.sarif
+          cat results.sarif/*.sarif > merged.sarif
 
       - name: Send results to webhook
         if: always()
         run: |
-          echo "Sending CodeQL results for ${{ matrix.language }} to webhook..."
-          curl -s -X POST \
-            -H "Content-Type: application/json" \
-            -d @results.sarif \
-            "https://240540c4406b.ngrok-free.app/test"
+          curl -s -X POST             -H "Content-Type: application/json"             -d @merged.sarif             "https://240540c4406b.ngrok-free.app/test"
+
