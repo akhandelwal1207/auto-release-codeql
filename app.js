@@ -10,6 +10,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 //test 11
 
+const getReleaseInfo = (tag) => {
+  return `refs/tags/${tag}`
+}
 // Routes
 app.get('/', (req, res) => {
   res.send(`
