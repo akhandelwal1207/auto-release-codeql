@@ -69,6 +69,17 @@ app.get('/calc', (req, res) => {
   }
 });
 
+app.get('/calc123', (req, res) => {
+  const expression = req.query.expr;
+  // ⚠️ Code Injection vulnerability
+  try {
+    const result = eval(expression);
+    res.send(`Result: ${result}`);
+  } catch (error) {
+    res.send('Error in expression');
+  }
+});
+
 
 
 app.get('/user', (req, res) => {
