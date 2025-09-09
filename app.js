@@ -82,6 +82,17 @@ app.get('/user', (req, res) => {
   });
 });
 
+app.get('/user/:id', (req, res) => {
+  const userId = req.query.id;
+  // ⚠️ SQL Injection vulnerability
+  const query = `SELECT * FROM users WHERE id = ${userId}`;
+  
+  db.query(query, (error, results) => {
+    if (error) throw error;
+    res.json(results);
+  });
+});
+
 app.get('/search', (req, res) => {
   const searchTerm = req.query.q;
   // ⚠️ Reflected XSS vulnerability
