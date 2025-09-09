@@ -1,6 +1,4 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -106,19 +104,6 @@ app.post('/api/echo', (req, res) => {
   });
 });
 
-// Path Traversal vulnerability
-app.get('/download', (req, res) => {
-  const fileName = req.query.file;
-  const filePath = path.join(__dirname, 'files', fileName); // ⚠️ Vulnerable
-  
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      return res.status(404).send('File not found');
-    }
-    res.send(data);
-  });
-});
-
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -142,6 +127,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-
-
-add new vulanabrity that can be scanned by the codeQL
