@@ -57,6 +57,11 @@ jobs:
         with:
           category: ${{ matrix.language }}
           output: results.sarif
+      
+      - name: Debug SARIF file
+        run: |
+          ls -lh results.sarif
+          head -n 20 results.sarif
 
       - name: Send results to webhook
         if: always()
