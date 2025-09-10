@@ -70,7 +70,9 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs "${{ toJSON(github.event.inputs) }}" '
+          # Write workflow inputs to a file as JSON to avoid jq --argjson issues
+          echo '${{ toJSON(github.event.inputs) }}' > workflow_inputs.json
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --slurpfile inputs workflow_inputs.json '
                   # gather rules from driver + extensions
                   ([
                     .[].runs[]?.tool.driver.rules[]? // empty
@@ -94,7 +96,7 @@ jobs:
                       commit: $commit,
                       timestamp: $ts,
                       language: $lang,
-                      inputs: $inputs,
+                      inputs: ($inputs[0]),
                       alerts: (
                         [ .[] | .runs[]? | .results[]?
                           | {
