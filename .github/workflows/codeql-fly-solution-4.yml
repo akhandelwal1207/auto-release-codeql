@@ -63,37 +63,48 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq --arg repo "${GITHUB_REPOSITORY}"              --arg ref "${{ github.event.inputs.analysis_ref }}"              --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"              --arg ts "$timestamp"              --arg lang "${{ matrix.language }}"              --argjson inputs '${{ toJSON(github.event.inputs) }}'              '
-             {
-               repository: $repo,
-               ref: $ref,
-               commit: $commit,
-               timestamp: $ts,
-               language: $lang,
-               inputs: $inputs,
-               alerts: (
-                 [ .[] | .runs[]? | .results[]? 
-                      | {
-                          ruleId: .ruleId,
-                          kind: .kind,
-                          level: .level,
-                          message: .message.text,
-                          file: .locations[0].physicalLocation.artifactLocation.uri,
-                          startLine: .locations[0].physicalLocation.region.startLine,
-                          startColumn: .locations[0].physicalLocation.region.startColumn,
-                          endLine: .locations[0].physicalLocation.region.endLine,
-                          endColumn: .locations[0].physicalLocation.region.endColumn,
-                          severity: (rules_map[.ruleId].severity // .level // "unknown"),
-                          precision: (rules_map[.ruleId].precision // "unknown"),
-                          tags: (rules_map[.ruleId].tags // []),
-                          help: (rules_map[.ruleId].help // ""),
-                          helpUrl: (rules_map[.ruleId].url // ""),
-                          fingerprints: (try .partialFingerprints // {})
-                        }
-                    ] // []
-               )
-             }
-             ' results.sarif/*.sarif > alerts.json
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs '${{ toJSON(github.event.inputs) }}'                 '
+                # Build map of ruleId -> details once
+                [ .[].runs[]?.tool.driver.rules[]? 
+                  | {key: .id, value: { 
+                      severity: (try .properties."security-severity" // .defaultConfiguration.level // "unknown"),
+                      precision: (try .properties.precision // "unknown"),
+                      tags: (try .properties.tags // []),
+                      help: (try .fullDescription.text // ""),
+                      url: (try .helpUri // "")
+                    }}
+                ] | from_entries as $rules
+
+                | {
+                    repository: $repo,
+                    ref: $ref,
+                    commit: $commit,
+                    timestamp: $ts,
+                    language: $lang,
+                    inputs: $inputs,
+                    alerts: (
+                      [ .[] | .runs[]? | .results[]? 
+                        | {
+                            ruleId: .ruleId,
+                            kind: .kind,
+                            level: .level,
+                            message: .message.text,
+                            file: .locations[0].physicalLocation.artifactLocation.uri,
+                            startLine: .locations[0].physicalLocation.region.startLine,
+                            startColumn: .locations[0].physicalLocation.region.startColumn,
+                            endLine: .locations[0].physicalLocation.region.endLine,
+                            endColumn: .locations[0].physicalLocation.region.endColumn,
+                            severity: ($rules[.ruleId].severity // .level // "unknown"),
+                            precision: ($rules[.ruleId].precision // "unknown"),
+                            tags: ($rules[.ruleId].tags // []),
+                            help: ($rules[.ruleId].help // ""),
+                            helpUrl: ($rules[.ruleId].url // ""),
+                            fingerprints: (try .partialFingerprints // {})
+                          }
+                      ] // []
+                    )
+                  }
+                ' results.sarif/*.sarif > alerts.json
 
       - name: Send results to webhook
         if: always()
