@@ -65,18 +65,14 @@ jobs:
           name: sarif-results
           path: |
             results.sarif/*.sarif
-
       - name: Extract alerts from SARIF and include workflow inputs
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs '${{ toJSON(github.event.inputs) }}'                 '
-                # gather rules from driver
-                ( [ .[].runs[]?.tool.driver.rules[]? ] 
-                  + 
-                  # gather rules from all extensions
-                  [ .[].runs[]?.tool.extensions[]?.rules[]? ]
-                ) 
+          inputs_json=$(jq -n --argjson inputs "${{ toJSON(github.event.inputs) }}" '$inputs')
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{GITHUB_REF}}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs "$inputs_json"                 '
+                # gather rules from driver + extensions
+                ([ .[].runs[]?.tool.driver.rules[]? ] + [ .[].runs[]?.tool.extensions[]?.rules[]? ])
                 | reduce .[] as $r ({}; .[$r.id] = {
                     securitySeverity: (try $r.properties."security-severity" // ""),
                     precision: (try $r.properties.precision // ""),
@@ -87,7 +83,6 @@ jobs:
                     kind: (try $r.properties.kind // "problem")
                   })
                 ) as $rules
-
                 | {
                     repository: $repo,
                     ref: $ref,
@@ -96,7 +91,7 @@ jobs:
                     language: $lang,
                     inputs: $inputs,
                     alerts: (
-                      [ .[] | .runs[]? | .results[]? 
+                      [ .[] | .runs[]? | .results[]?
                         | {
                             ruleId: .ruleId,
                             message: .message.text,
@@ -113,7 +108,6 @@ jobs:
                           }
                       ]
                       | unique_by(.ruleId, .file, .startLine, .message)
-                      // []
                     )
                   }
                 ' results.sarif/*.sarif > alerts.json
