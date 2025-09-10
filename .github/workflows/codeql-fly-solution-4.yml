@@ -71,18 +71,21 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs '${{ toJSON(github.event.inputs) }}'                 '
-                # build all rules into a map and assign to $rules
-                (
-                  [ .[].runs[]?.tool.driver.rules[]? ] 
-                  | reduce .[] as $r ({}; .[$r.id] = {
-                      securitySeverity: (try $r.properties."security-severity" // ""),
-                      precision: (try $r.properties.precision // ""),
-                      tags: (try $r.properties.tags // []),
-                      help: (try $r.fullDescription.text // ""),
-                      helpUrl: (try $r.helpUri // ""),
-                      defaultLevel: (try $r.defaultConfiguration.level // "note"),
-                      kind: (try $r.kind // "problem")
-                    })
+                # gather rules from driver
+                ( [ .[].runs[]?.tool.driver.rules[]? ] 
+                  + 
+                  # gather rules from all extensions
+                  [ .[].runs[]?.tool.extensions[]?.rules[]? ]
+                ) 
+                | reduce .[] as $r ({}; .[$r.id] = {
+                    securitySeverity: (try $r.properties."security-severity" // ""),
+                    precision: (try $r.properties.precision // ""),
+                    tags: (try $r.properties.tags // []),
+                    help: (try $r.help // ""),
+                    helpUrl: (try $r.helpUri // ""),
+                    defaultLevel: (try $r.defaultConfiguration.level // "note"),
+                    kind: (try $r.properties.kind // "problem")
+                  })
                 ) as $rules
 
                 | {
