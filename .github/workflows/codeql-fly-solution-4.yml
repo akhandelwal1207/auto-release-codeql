@@ -59,12 +59,6 @@ jobs:
           category: ${{ matrix.language }}
           output: results.sarif
 
-      - name: Upload SARIF results artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sarif-results
-          path: |
-            results.sarif/*.sarif
 
       - name: Extract alerts from SARIF and include workflow inputs
         run: |
@@ -122,8 +116,12 @@ jobs:
                 )
               }
           ' results.sarif/*.sarif > alerts.json
-
-
+      
+      - name: Upload Code Scanning results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-scanning-results-${{ github.event.inputs.commit_sha || github.sha }}
+          path: alerts.json
 
       - name: Send results to webhook
         if: always()
