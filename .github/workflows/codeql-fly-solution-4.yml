@@ -118,7 +118,7 @@ jobs:
                         fingerprints: (try .partialFingerprints // {})
                       }
                   ]
-                  | unique_by("(.ruleId)|(.file)|(.startLine)|(.message)")
+                  | unique_by([.ruleId, .location.file, .location.region.startLine, .message])
                 )
               }
           ' results.sarif/*.sarif > alerts.json
