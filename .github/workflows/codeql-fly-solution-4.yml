@@ -64,14 +64,14 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs '${{ toJSON(github.event.inputs) }}'                 '
-                # collect all rules from all runs in all files
-                reduce (.[].runs[]?.tool.driver.rules[]?) as $r ({}; .[$r.id] = {
+                # build a rules map across all files
+                (reduce (.[].runs[]?.tool.driver.rules[]?) as $r ({}; .[$r.id] = {
                   severity: (try $r.properties."security-severity" // $r.defaultConfiguration.level // "unknown"),
                   precision: (try $r.properties.precision // "unknown"),
                   tags: (try $r.properties.tags // []),
                   help: (try $r.fullDescription.text // ""),
                   url: (try $r.helpUri // "")
-                }) as $rules
+                })) as $rules
 
                 | {
                     repository: $repo,
