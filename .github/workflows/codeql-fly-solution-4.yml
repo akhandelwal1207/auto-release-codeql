@@ -72,7 +72,7 @@ jobs:
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           # Write workflow inputs to a file as JSON to avoid jq --argjson issues
           echo '${{ toJSON(github.event.inputs) }}' > workflow_inputs.json
-          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --slurpfile inputs workflow_inputs.json '
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg tag "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --slurpfile inputs workflow_inputs.json '
             # gather rules from driver + extensions into a single object
             ([
               .[].runs[]?.tool.driver.rules[]? // empty
@@ -84,14 +84,15 @@ jobs:
                 precision: (try $r.properties.precision // ""),
                 tags: (try $r.properties.tags // []),
                 help: (try $r.help // ""),
-                helpUrl: (try $r.helpUri // ""),
+                name: (try $r.properties.name // ""),
+                description: (try $r.properties.description // ""),
                 defaultLevel: (try $r.defaultConfiguration.level // "note"),
                 kind: (try $r.properties.kind // "problem")
               })
             ) as $rules
             | {
                 repository: $repo,
-                ref: $ref,
+                tag: $tag,
                 commit: $commit,
                 timestamp: $ts,
                 language: $lang,
@@ -101,15 +102,19 @@ jobs:
                     | {
                         ruleId: .ruleId,
                         message: .message.text,
-                        file: .locations[0].physicalLocation.artifactLocation.uri,
-                        startLine: .locations[0].physicalLocation.region.startLine,
+                        location: {
+                          file: .locations[0].physicalLocation.artifactLocation.uri,
+                          region: .locations[0].physicalLocation.region,
+                        },
+                        commit_sha: $commit,
                         severity: ($rules[.ruleId].securitySeverity // "unknown"),
                         level: (.level // $rules[.ruleId].defaultLevel // "note"),
                         kind: ($rules[.ruleId].kind // "problem"),
                         precision: ($rules[.ruleId].precision // ""),
                         tags: ($rules[.ruleId].tags // []),
                         help: ($rules[.ruleId].help // ""),
-                        helpUrl: ($rules[.ruleId].helpUrl // ""),
+                        name: ($rules[.ruleId].name // ""),
+                        description: ($rules[.ruleId].description // ""),
                         fingerprints: (try .partialFingerprints // {})
                       }
                   ]
