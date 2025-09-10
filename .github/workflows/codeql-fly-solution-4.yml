@@ -73,51 +73,49 @@ jobs:
           # Write workflow inputs to a file as JSON to avoid jq --argjson issues
           echo '${{ toJSON(github.event.inputs) }}' > workflow_inputs.json
           jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --slurpfile inputs workflow_inputs.json '
-                  # gather rules from driver + extensions
-                  ([
-                    .[].runs[]?.tool.driver.rules[]? // empty
-                  ] + [
-                    .[].runs[]?.tool.extensions[]?.rules[]? // empty
-                  ])
-                  | add // [] 
-                  | reduce .[] as $r ({}; .[$r.id] = {
-                      securitySeverity: (try $r.properties["security-severity"] // ""),
-                      precision: (try $r.properties.precision // ""),
-                      tags: (try $r.properties.tags // []),
-                      help: (try $r.help // ""),
-                      helpUrl: (try $r.helpUri // ""),
-                      defaultLevel: (try $r.defaultConfiguration.level // "note"),
-                      kind: (try $r.properties.kind // "problem")
-                    })
-                  as $rules
-                  | {
-                      repository: $repo,
-                      ref: $ref,
-                      commit: $commit,
-                      timestamp: $ts,
-                      language: $lang,
-                      inputs: ($inputs[0]),
-                      alerts: (
-                        [ .[] | .runs[]? | .results[]?
-                          | {
-                              ruleId: .ruleId,
-                              message: .message.text,
-                              file: .locations[0].physicalLocation.artifactLocation.uri,
-                              startLine: .locations[0].physicalLocation.region.startLine,
-                              severity: ($rules[.ruleId].securitySeverity // "unknown"),
-                              level: (.level // $rules[.ruleId].defaultLevel // "note"),
-                              kind: ($rules[.ruleId].kind // "problem"),
-                              precision: ($rules[.ruleId].precision // ""),
-                              tags: ($rules[.ruleId].tags // []),
-                              help: ($rules[.ruleId].help // ""),
-                              helpUrl: ($rules[.ruleId].helpUrl // ""),
-                              fingerprints: (try .partialFingerprints // {})
-                            }
-                        ]
-                        | unique_by(.ruleId, .file, .startLine, .message)
-                      )
-                    }
-                ' results.sarif/*.sarif > alerts.json
+            # gather rules from driver + extensions
+            reduce ([
+              .[].runs[]?.tool.driver.rules[]? // empty
+            ] + [
+              .[].runs[]?.tool.extensions[]?.rules[]? // empty
+            ])[] as $r ({}; .[$r.id] = {
+                securitySeverity: (try $r.properties["security-severity"] // ""),
+                precision: (try $r.properties.precision // ""),
+                tags: (try $r.properties.tags // []),
+                help: (try $r.help // ""),
+                helpUrl: (try $r.helpUri // ""),
+                defaultLevel: (try $r.defaultConfiguration.level // "note"),
+                kind: (try $r.properties.kind // "problem")
+              }) as $rules
+            | {
+                repository: $repo,
+                ref: $ref,
+                commit: $commit,
+                timestamp: $ts,
+                language: $lang,
+                inputs: $inputs[0],
+                alerts: (
+                  [ .[] | .runs[]? | .results[]?
+                    | {
+                        ruleId: .ruleId,
+                        message: .message.text,
+                        file: .locations[0].physicalLocation.artifactLocation.uri,
+                        startLine: .locations[0].physicalLocation.region.startLine,
+                        severity: ($rules[.ruleId].securitySeverity // "unknown"),
+                        level: (.level // $rules[.ruleId].defaultLevel // "note"),
+                        kind: ($rules[.ruleId].kind // "problem"),
+                        precision: ($rules[.ruleId].precision // ""),
+                        tags: ($rules[.ruleId].tags // []),
+                        help: ($rules[.ruleId].help // ""),
+                        helpUrl: ($rules[.ruleId].helpUrl // ""),
+                        fingerprints: (try .partialFingerprints // {})
+                      }
+                  ]
+                  | unique_by("(.ruleId)|(.file)|(.startLine)|(.message)")
+                )
+              }
+          ' results.sarif/*.sarif > alerts.json
+
 
       - name: Send results to webhook
         if: always()
