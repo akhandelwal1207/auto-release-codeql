@@ -63,27 +63,26 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq -n             --arg repo "${GITHUB_REPOSITORY}"             --arg ref "${{ github.event.inputs.analysis_ref }}"             --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"             --arg ts "$timestamp"             --argjson inputs "$(echo '${{ toJSON(github.event.inputs) }}')"             '
-            {
-              repository: $repo,
-              ref: $ref,
-              commit: $commit,
-              timestamp: $ts,
-              workflow_inputs: $inputs,
-              inputs: $inputs,
-              alerts: [
-                .runs[].results[] |
-                {
-                  ruleId: .ruleId,
-                  severity: .level,
-                  message: .message.text,
-                  file: .locations[0].physicalLocation.artifactLocation.uri,
-                  startLine: .locations[0].physicalLocation.region.startLine,
-                  tags: (try (.rule.properties.tags) // [])
-                }
-              ]
-            }
-            ' results.sarif > alerts.json
+          jq --arg repo "${GITHUB_REPOSITORY}"              --arg ref "${{ github.event.inputs.analysis_ref }}"              --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"              --arg ts "$timestamp"              --arg lang "${{ matrix.language }}"              '
+             {
+               repository: $repo,
+               ref: $ref,
+               commit: $commit,
+               timestamp: $ts,
+               language: $lang,
+               alerts: (
+                 [.runs[]? | .results[]? | {
+                   ruleId: .ruleId,
+                   severity: .level,
+                   message: .message.text,
+                   file: .locations[0].physicalLocation.artifactLocation.uri,
+                   startLine: .locations[0].physicalLocation.region.startLine,
+                   tags: (try (.rule.properties.tags) // [])
+                 }] // []
+               )
+             }
+             ' results.sarif > alerts.json
+
 
       - name: Send results to webhook
         if: always()
