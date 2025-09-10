@@ -65,15 +65,14 @@ jobs:
           name: sarif-results
           path: |
             results.sarif/*.sarif
-      
+
       - name: Extract alerts from SARIF and include workflow inputs
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          # Save github.event.inputs as JSON to a file
-          echo '${{ toJSON(github.event.inputs) }}' > inputs.json
-          jq -s --arg repo "$GITHUB_REPOSITORY"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --slurpfile inputs inputs.json                 '
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs '${{ toJSON(github.event.inputs) }}'                 '
                 # gather rules from driver + extensions
+                
                 ([ .[].runs[]?.tool.driver.rules[]? ] + [ .[].runs[]?.tool.extensions[]?.rules[]? ])
                 | reduce .[] as $r ({}; .[$r.id] = {
                     securitySeverity: (try $r.properties."security-severity" // ""),
@@ -85,15 +84,16 @@ jobs:
                     kind: (try $r.properties.kind // "problem")
                   })
                 ) as $rules
+
                 | {
                     repository: $repo,
                     ref: $ref,
                     commit: $commit,
                     timestamp: $ts,
                     language: $lang,
-                    inputs: $inputs[0],
+                    inputs: $inputs,
                     alerts: (
-                      [ .[] | .runs[]? | .results[]?
+                      [ .[] | .runs[]? | .results[]? 
                         | {
                             ruleId: .ruleId,
                             message: .message.text,
@@ -109,10 +109,11 @@ jobs:
                             fingerprints: (try .partialFingerprints // {})
                           }
                       ]
-                      | unique_by("(.ruleId)|(.file)|(.startLine)|(.message)")
+                      | unique_by(.ruleId, .file, .startLine, .message)
+                      // []
                     )
                   }
-              ' results.sarif/*.sarif > alerts.json
+                ' results.sarif/*.sarif > alerts.json
 
       - name: Send results to webhook
         if: always()
