@@ -70,7 +70,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           inputs_json=$(jq -n --argjson inputs "${{ toJSON(github.event.inputs) }}" '$inputs')
-          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{GITHUB_REF}}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs "$inputs_json"                 '
+          jq -s --arg repo "${GITHUB_REPOSITORY}"                 --arg ref "${{ github.event.inputs.analysis_ref }}"                 --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"                 --arg ts "$timestamp"                 --arg lang "${{ matrix.language }}"                 --argjson inputs "$inputs_json"                 '
                 # gather rules from driver + extensions
                 ([ .[].runs[]?.tool.driver.rules[]? ] + [ .[].runs[]?.tool.extensions[]?.rules[]? ])
                 | reduce .[] as $r ({}; .[$r.id] = {
