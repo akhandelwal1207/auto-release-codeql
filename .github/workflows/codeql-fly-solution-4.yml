@@ -63,13 +63,14 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          jq --arg repo "${GITHUB_REPOSITORY}"              --arg ref "${{ github.event.inputs.analysis_ref }}"              --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"              --arg ts "$timestamp"              --arg lang "${{ matrix.language }}"              '
+          jq --arg repo "${GITHUB_REPOSITORY}"              --arg ref "${{ github.event.inputs.analysis_ref }}"              --arg commit "${{ github.event.inputs.commit_sha || github.sha }}"              --arg ts "$timestamp"              --arg lang "${{ matrix.language }}"              --argjson inputs '${{ toJSON(github.event.inputs) }}'              '
              {
                repository: $repo,
                ref: $ref,
                commit: $commit,
                timestamp: $ts,
                language: $lang,
+               inputs: $inputs,
                alerts: (
                  [.runs[]? | .results[]? | {
                    ruleId: .ruleId,
@@ -81,8 +82,7 @@ jobs:
                  }] // []
                )
              }
-             ' results.sarif > alerts.json
-
+             ' results.sarif/*.sarif > alerts.json
 
       - name: Send results to webhook
         if: always()
@@ -90,4 +90,4 @@ jobs:
           curl -s -X POST \
             -H "Content-Type: application/json" \
             -d @alerts.json \
-            "https://7a1919465ee3.ngrok-free.app/test"
+            "https://10bb6deab879.ngrok-free.app/test"
