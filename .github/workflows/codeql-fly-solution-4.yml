@@ -59,6 +59,13 @@ jobs:
           category: ${{ matrix.language }}
           output: results.sarif
 
+      - name: Upload SARIF results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarif-results
+          path: |
+            results.sarif/*.sarif
+
       - name: Extract alerts from SARIF and include workflow inputs
         run: |
           sudo apt-get update && sudo apt-get install -y jq
