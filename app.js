@@ -69,12 +69,34 @@ app.get('/calc', (req, res) => {
   }
 });
 
+app.get('/calc123', (req, res) => {
+  const expression = req.query.expr;
+  // ⚠️ Code Injection vulnerability
+  try {
+    const result = eval(expression);
+    res.send(`Result: ${result}`);
+  } catch (error) {
+    res.send('Error in expression');
+  }
+});
+
 
 
 app.get('/user', (req, res) => {
   const userId = req.query.id;
   // ⚠️ SQL Injection vulnerability
   const query = `SELECT * FROM users WHERE id = ${userId}`;
+  
+  db.query(query, (error, results) => {
+    if (error) throw error;
+    res.json(results);
+  });
+});
+
+app.get('/user-search', (req, res) => {
+  const userId = req.query.id;
+  // ⚠️ SQL Injection vulnerability
+  const query = `SELECT * FROM users_search WHERE id = ${userId}`;
   
   db.query(query, (error, results) => {
     if (error) throw error;
